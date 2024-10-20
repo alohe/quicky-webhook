@@ -18,8 +18,8 @@ if (!fs.existsSync(configPath)) {
 // Read configuration file once
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-const webhookPort = config.webhookPort;
-const webhookSecret = config.webhookSecret;
+const webhookPort = config.webhook.webhookPort;
+const webhookSecret = config.webhook.secret;
 
 console.log(webhookPort);
 console.log(webhookSecret);
