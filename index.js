@@ -2,9 +2,13 @@ import express from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { exec } from "child_process";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
+
 dotenv.config();
 
-const configPath = defaultFolder + "/config.json";
+const defaultFolder = "~/.quicky";
+const configPath = path.join(defaultFolder, "config.json");
 
 if (!fs.existsSync(configPath)) {
   throw new Error(
@@ -45,47 +49,47 @@ function verifySignature(req) {
 }
 
 app.post("/webhook", (req, res) => {
-    const event = req.headers["x-github-event"];
-    console.log(`Received event: ${event}`);
+  const event = req.headers["x-github-event"];
+  console.log(`Received event: ${event}`);
 
-    if (!verifySignature(req)) {
-        console.error("Invalid signature");
-        return res.status(401).send("Invalid signature");
+  if (!verifySignature(req)) {
+    console.error("Invalid signature");
+    return res.status(401).send("Invalid signature");
+  }
+
+  if (event === "push") {
+    console.log("Push event detected, triggering deployment...");
+    const branch = req.body.ref.split("/").pop();
+    console.log(`Push to branch ${branch}`);
+
+    const owner = req.body.repository.owner.name;
+    const repository = req.body.repository.name;
+
+    // Check if project exists in config
+    const project = config.projects.find(
+      (p) => p.owner === owner && p.repo === repository
+    );
+
+    if (!project) {
+      console.error("Project not found in configuration");
+      return res.status(404).send("Project not found");
     }
 
-    if (event === "push") {
-        console.log("Push event detected, triggering deployment...");
-        let branch = req.body.ref.split("/").pop();
-        console.log(`Push to branch ${branch}`);
-
-        let owner = req.body.repository.owner.name;
-        let repository = req.body.repository.name;
-
-        // check if project exists in config
-        const project = config.projects.find(
-            (p) => p.owner === owner && p.repo === repository
-        );
-
-        if (!project) {
-            console.error("Project not found in configuration");
-            return res.status(404).send("Project not found");
-        }
-
-        exec(`quicky update ${project.pid}`, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error updating project: ${error.message}`);
-                return res.status(500).send("Deployment failed");
-            }
-            if (stderr) {
-                console.error(`Deployment stderr: ${stderr}`);
-            }
-            console.log(`Deployment stdout: ${stdout}`);
-            res.status(200).send("Deployment successful");
-        });
-    } else {
-        console.log(`Unhandled event type: ${event}`);
-        res.status(200).send(`Unhandled event type: ${event}`);
-    }
+    exec(`quicky update ${project.pid}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error updating project: ${error.message}`);
+        return res.status(500).send("Deployment failed");
+      }
+      if (stderr) {
+        console.error(`Deployment stderr: ${stderr}`);
+      }
+      console.log(`Deployment stdout: ${stdout}`);
+      res.status(200).send("Deployment successful");
+    });
+  } else {
+    console.log(`Unhandled event type: ${event}`);
+    res.status(200).send(`Unhandled event type: ${event}`);
+  }
 });
 
 app.listen(webhookPort, () => {
