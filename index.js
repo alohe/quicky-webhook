@@ -7,7 +7,8 @@ import path from "path";
 
 dotenv.config();
 
-const defaultFolder = "~/.quicky";
+const homeDir = os.homedir();
+const defaultFolder = path.join(homeDir, ".quicky");
 const configPath = path.join(defaultFolder, "config.json");
 
 if (!fs.existsSync(configPath)) {
