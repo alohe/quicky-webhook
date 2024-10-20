@@ -4,16 +4,17 @@ import { exec } from "child_process";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 dotenv.config();
 
 const homeDir = os.homedir();
-const defaultFolder = path.join(homeDir, ".quicky");
+const defaultFolder = path.join(homeDir, ".quickly");
 const configPath = path.join(defaultFolder, "config.json");
 
 if (!fs.existsSync(configPath)) {
   throw new Error(
-    "Configuration file not found. Please install and configure quicky first. Visit https://quicky.dev for more info."
+    "Configuration file not found. Please install and configure quickly first. Visit https://quickly.dev for more info."
   );
 }
 
@@ -76,7 +77,7 @@ app.post("/webhook", (req, res) => {
       return res.status(404).send("Project not found");
     }
 
-    exec(`quicky update ${project.pid}`, (error, stdout, stderr) => {
+    exec(`quickly update ${project.pid}`, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error updating project: ${error.message}`);
         return res.status(500).send("Deployment failed");
