@@ -1,0 +1,16 @@
+{
+  "name": "quicky-webhook",
+  "version": "0.0.1",
+  "description": "A Node.js application for handling GitHub webhook push events",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Alohe",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1"
+  }
+}
