@@ -1,12 +1,9 @@
 import express from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { exec } from "child_process";
-import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import os from "os";
-
-dotenv.config();
 
 const homeDir = os.homedir();
 const defaultFolder = path.join(homeDir, ".quicky");
@@ -21,8 +18,11 @@ if (!fs.existsSync(configPath)) {
 // Read configuration file once
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-const webhookPort = process.env.WEBHOOK_PORT;
-const webhookSecret = process.env.WEBHOOK_SECRET;
+const webhookPort = config.webhookPort;
+const webhookSecret = config.webhookSecret;
+
+console.log(webhookPort);
+console.log(webhookSecret);
 
 if (!webhookSecret) {
   throw new Error("WEBHOOK_SECRET environment variable is required");
@@ -67,10 +67,14 @@ app.post("/webhook", (req, res) => {
     const owner = req.body.repository.owner.name;
     const repository = req.body.repository.name;
 
+    console.log(`Owner: ${owner}, Repository: ${repository}`);
+
     // Check if project exists in config
     const project = config.projects.find(
       (p) => p.owner === owner && p.repo === repository
     );
+
+    console.log(`Project: ${JSON.stringify(project)}`);
 
     if (!project) {
       console.error("Project not found in configuration");
@@ -88,6 +92,8 @@ app.post("/webhook", (req, res) => {
       console.log(`Deployment stdout: ${stdout}`);
       res.status(200).send("Deployment successful");
     });
+
+    return;
   } else {
     console.log(`Unhandled event type: ${event}`);
     res.status(200).send(`Unhandled event type: ${event}`);
