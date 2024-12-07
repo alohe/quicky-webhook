@@ -1,9 +1,11 @@
 import express from "express";
-import { createHmac, timingSafeEqual } from "crypto";
-import { exec } from "child_process";
-import fs from "fs";
-import path from "path";
-import os from "os";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { exec } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import rateLimit from 'express-rate-limit';
+import util from 'node:util';
 
 const homeDir = os.homedir();
 const defaultFolder = path.join(homeDir, ".quicky");
@@ -15,8 +17,28 @@ if (!fs.existsSync(configPath)) {
   );
 }
 
+// Add structured logging helper at the top after imports
+const logger = {
+  info: (message, meta = {}) => console.log(JSON.stringify({ level: 'info', message, ...meta })),
+  error: (message, meta = {}) => console.error(JSON.stringify({ level: 'error', message, ...meta })),
+};
+
+function validateConfig(config) {
+  const required = ['webhook.webhookPort', 'webhook.secret', 'projects'];
+  for (const field of required) {
+    const value = field.split('.').reduce((obj, key) => obj?.[key], config);
+    if (!value) {
+      throw new Error(`Missing required config field: ${field}`);
+    }
+  }
+  if (!Array.isArray(config.projects) || config.projects.length === 0) {
+    throw new Error('Projects array must not be empty');
+  }
+}
+
 // Read configuration file once
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+validateConfig(config);
 
 const webhookPort = config.webhook.webhookPort;
 const webhookSecret = config.webhook.secret;
@@ -33,7 +55,14 @@ if (!webhookPort) {
 }
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
 
 function verifySignature(req) {
   const signature = req.headers["x-hub-signature"];
@@ -50,56 +79,62 @@ function verifySignature(req) {
   );
 }
 
-app.post("/webhook", (req, res) => {
-  const event = req.headers["x-github-event"];
-  console.log(`Received event: ${event}`);
+app.post("/webhook", async (req, res) => {
+  try {
+    const event = req.headers["x-github-event"];
+    logger.info('Received webhook event', { event });
 
-  if (!verifySignature(req)) {
-    console.error("Invalid signature");
-    return res.status(401).send("Invalid signature");
-  }
-
-  if (event === "push") {
-    console.log("Push event detected, triggering deployment...");
-    const branch = req.body.ref.split("/").pop();
-    console.log(`Push to branch ${branch}`);
-
-    const owner = req.body.repository.owner.name;
-    const repository = req.body.repository.name;
-
-    console.log(`Owner: ${owner}, Repository: ${repository}`);
-
-    // Check if project exists in config
-    const project = config.projects.find(
-      (p) => p.owner === owner && p.repo === repository
-    );
-
-    console.log(`Project: ${JSON.stringify(project)}`);
-
-    if (!project) {
-      console.error("Project not found in configuration");
-      return res.status(404).send("Project not found");
+    if (!verifySignature(req)) {
+      logger.error('Invalid signature');
+      return res.status(401).send("Invalid signature");
     }
 
-    exec(`quicky update ${project.pid}`, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error updating project: ${error.message}`);
-        return res.status(500).send("Deployment failed");
-      }
-      if (stderr) {
-        console.error(`Deployment stderr: ${stderr}`);
-      }
-      console.log(`Deployment stdout: ${stdout}`);
-      res.status(200).send("Deployment successful");
-    });
+    if (event === "push") {
+      const branch = req.body.ref.split("/").pop();
+      const owner = req.body.repository.owner.name;
+      const repository = req.body.repository.name;
 
-    return;
-  } else {
-    console.log(`Unhandled event type: ${event}`);
-    res.status(200).send(`Unhandled event type: ${event}`);
+      const project = config.projects.find(
+        (p) => p.owner === owner && p.repo === repository
+      );
+
+      if (!project) {
+        logger.error('Project not found', { owner, repository });
+        return res.status(404).send("Project not found");
+      }
+
+      const { stdout, stderr } = await util.promisify(exec)(`quicky update ${project.pid}`);
+      
+      if (stderr) {
+        logger.error('Deployment warning', { stderr });
+      }
+      logger.info('Deployment successful', { stdout });
+      return res.status(200).send("Deployment successful");
+    }
+
+    logger.info('Unhandled event type', { event });
+    return res.status(200).send(`Unhandled event type: ${event}`);
+  } catch (error) {
+    logger.error('Webhook processing failed', { error: error.message });
+    return res.status(500).send("Internal server error");
   }
 });
 
-app.listen(webhookPort, () => {
-  console.log(`Listening for GitHub webhook events on port ${webhookPort}`);
+function setupGracefulShutdown(server) {
+  const shutdown = () => {
+    logger.info('Received shutdown signal');
+    server.close(() => {
+      logger.info('Server shut down gracefully');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+const server = app.listen(webhookPort, () => {
+  logger.info('Webhook server started', { port: webhookPort });
 });
+
+setupGracefulShutdown(server);
