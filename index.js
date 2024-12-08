@@ -15,6 +15,7 @@ const homeDir = os.homedir();
 const defaultFolder = path.join(homeDir, ".quicky");
 const configPath = path.join(defaultFolder, "config.json");
 const logsPath = path.join(defaultFolder, "logs.json");
+const viewsPath = path.join(defaultFolder, "webhook", "views");
 
 if (!fs.existsSync(configPath)) {
   throw new Error(
@@ -95,6 +96,7 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
+app.set('views', viewsPath);
 
 // Session middleware
 app.use(session({
