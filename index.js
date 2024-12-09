@@ -8,14 +8,22 @@ import rateLimit from 'express-rate-limit';
 import util from 'node:util';
 import session from 'express-session';
 import bcrypt from 'bcrypt';
-import WebSocket from 'ws';
-import { WebSocketServer } from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const env = process.env.NODE_ENV || 'production';
 
 const homeDir = os.homedir();
 const defaultFolder = path.join(homeDir, ".quicky");
 const configPath = path.join(defaultFolder, "config.json");
 const logsPath = path.join(defaultFolder, "logs.json");
-const viewsPath = path.join(defaultFolder, "webhook", "views");
+const viewsPath = env === 'development'
+  ? path.join(process.cwd(), "views")
+  : path.join(defaultFolder, "webhook", "views")
+
+
 
 if (!fs.existsSync(configPath)) {
   throw new Error(
@@ -28,7 +36,7 @@ if (!fs.existsSync(logsPath)) {
   fs.writeFileSync(logsPath, JSON.stringify([]));
 }
 
-// WebSocket clients array
+// WebSocket clients array with heartbeat tracking
 let wsClients = [];
 
 // Add structured logging helper at the top after imports
@@ -41,7 +49,7 @@ const logger = {
     fs.writeFileSync(logsPath, JSON.stringify(logs));
     // Broadcast to all connected WebSocket clients
     for (const client of wsClients) {
-      if (client.readyState === WebSocket.OPEN) {
+      if (client.isAlive && client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(logEntry));
       }
     }
@@ -54,7 +62,7 @@ const logger = {
     fs.writeFileSync(logsPath, JSON.stringify(logs));
     // Broadcast to all connected WebSocket clients
     for (const client of wsClients) {
-      if (client.readyState === WebSocket.OPEN) {
+      if (client.isAlive && client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(logEntry));
       }
     }
@@ -144,9 +152,9 @@ app.get('/login', (req, res) => {
 
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  
-  if (username === config.dashboard.username && 
-      await bcrypt.compare(password, config.dashboard.password)) {
+
+  if (username === config.dashboard.username &&
+    await bcrypt.compare(password, config.dashboard.password)) {
     req.session.authenticated = true;
     res.redirect('/dashboard');
   } else {
@@ -199,7 +207,7 @@ app.post("/webhook", async (req, res) => {
       }
 
       const { stdout, stderr } = await util.promisify(exec)(`quicky update ${project.pid}`);
-      
+
       if (stderr) {
         logger.error('Deployment warning', { warning: stderr });
       }
@@ -215,32 +223,47 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-function setupGracefulShutdown(server) {
-  const shutdown = () => {
-    logger.info('Received shutdown signal');
-    server.close(() => {
-      logger.info('Server shut down gracefully');
-      process.exit(0);
-    });
-  };
-
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-}
-
 const server = app.listen(webhookPort, () => {
   logger.info('Webhook server started', { port: webhookPort });
 });
 
-// Set up WebSocket server
+// Set up WebSocket server with heartbeat
 const wss = new WebSocketServer({ server });
 
+function heartbeat() {
+  this.isAlive = true;
+}
+
+const interval = setInterval(() => {
+  for (const ws of wsClients) {
+    if (!ws.isAlive) {
+      ws.terminate();
+      wsClients = wsClients.filter(client => client !== ws);
+      return;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, 30000);
+
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', heartbeat);
   wsClients.push(ws);
-  
+
+  // Send initial logs on connection
+  const logs = JSON.parse(fs.readFileSync(logsPath, 'utf-8'));
+  ws.send(JSON.stringify({ type: 'initial', logs }));
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+
   ws.on('close', () => {
     wsClients = wsClients.filter(client => client !== ws);
   });
 });
 
-setupGracefulShutdown(server);
+wss.on('close', () => {
+  clearInterval(interval);
+});

@@ -4,23 +4,34 @@
 <head>
     <title>Logs Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.show {
+            display: flex;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen text-gray-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="bg-white border border-gray-200 rounded-lg shadow-md p-6">
+<body class="bg-[#1C1C1C] min-h-screen text-white">
+    <div class="max-w-[1400px] mx-auto px-6 py-8">
+        <div class="bg-[#2A2A2A] rounded-xl border border-[#333333] shadow-sm">
             <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-semibold text-gray-800">System Logs</h2>
-                <div class="flex items-center space-x-4">
-                    <select id="logFilter"
-                        class="bg-gray-100 border border-gray-300 rounded-md px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring focus:border-blue-300">
-                        <option value="all">All</option>
-                        <option value="info">Info</option>
-                        <option value="error">Error</option>
-                    </select>
+            <div class="flex items-center justify-between p-6 border-b border-[#333333]">
+                <h2 class="text-xl font-semibold">System Logs</h2>
+                <div class="flex items-center gap-4">
+                    <div class="flex rounded-md bg-[#1C1C1C] p-1">
+                        <button onclick="filterLogs('all')" id="all-tab" class="px-4 py-1.5 text-sm font-medium rounded-md bg-[#3ECF8E] text-black">All logs</button>
+                        <button onclick="filterLogs('info')" id="info-tab" class="px-4 py-1.5 text-sm font-medium rounded-md text-white hover:bg-[#252525] transition-colors">Info only</button>
+                        <button onclick="filterLogs('error')" id="error-tab" class="px-4 py-1.5 text-sm font-medium rounded-md text-white hover:bg-[#252525] transition-colors">Errors only</button>
+                    </div>
                     <a href="/logout"
-                        class="bg-black text-white hover:bg-gray-800 font-semibold rounded-md px-4 py-2 text-sm transition-colors">
+                        class="h-9 px-4 inline-flex items-center justify-center text-sm font-medium bg-[#3ECF8E] text-black rounded-md hover:bg-[#3BBF83] transition-colors">
                         Logout
                     </a>
                 </div>
@@ -28,55 +39,61 @@
 
             <!-- Table -->
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
+                <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-100 border-b border-gray-200">
-                            <th class="py-2 px-4 text-sm font-medium text-gray-600">Time</th>
-                            <th class="py-2 px-4 text-sm font-medium text-gray-600">Level</th>
-                            <th class="py-2 px-4 text-sm font-medium text-gray-600">Message</th>
-                            <th class="py-2 px-4 text-sm font-medium text-gray-600">Details</th>
+                        <tr class="border-b border-[#333333]">
+                            <th class="py-3 px-6 text-left text-xs font-medium text-[#999999] uppercase tracking-wider">Message</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-[#999999] uppercase tracking-wider">Level</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-[#999999] uppercase tracking-wider">Time</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-[#999999] uppercase tracking-wider">Details</th>
                         </tr>
                     </thead>
-                    <tbody id="logTableBody" class="divide-y divide-gray-200">
+                    <tbody id="logTableBody">
                         <% logs.reverse().forEach(log=> { %>
-                            <tr class="hover:bg-gray-50 transition-colors log-entry" data-level="<%= log.level %>">
-                                <td class="py-2 px-4 text-sm text-gray-500">
-                                    <%= new Date(log.timestamp).toLocaleString() %>
-                                </td>
-                                <td class="py-2 px-4 text-sm">
-                                    <span
-                                        class="px-2 py-1 rounded-full text-xs font-medium
-                                        <%= log.message.includes('error') ? 'bg-red-100 text-red-800' : log.message.includes('warning') ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800' %>">
-                                        <%= log.message.includes('error') ? 'error' : log.message.includes('warning') ? 'warning' : 'info' %>
-                                    </span>
-                                </td>
-                                <td class="py-2 px-4 text-sm text-gray-500">
-                                    <span class="<%= log.message === 'Deployment successful' ? 'text-green-600' : 'text-gray-500' %>">
+                            <tr class="hover:bg-[#333333] transition-colors log-entry border-b border-[#333333] last:border-0" data-level="<%= log.level %>">
+                                <td class="py-4 px-6 text-sm">
+                                    <span class="<%= log.message === 'Deployment successful' ? 'text-[#3ECF8E]' : 'text-white' %>">
                                         <%= log.message %>
                                     </span>
                                 </td>
-                                <td class="py-2 px-4 text-sm text-gray-500">
+                                <td class="py-4 px-6 text-sm">
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium
+                                        <%= log.message.includes('error') ? 'bg-red-900/50 text-red-400' : 
+                                           log.message.includes('warning') ? 'bg-yellow-900/50 text-yellow-400' : 
+                                           'bg-emerald-900/50 text-emerald-400' %>">
+                                        <%= log.message.includes('error') ? 'error' : 
+                                           log.message.includes('warning') ? 'warning' : 'info' %>
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-[#999999]">
+                                    <%= new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true }).format(new Date(log.timestamp)) %>
+                                </td>
+                                <td class="py-4 px-6 text-sm">
                                     <% if (Object.keys(log).length > 3) { %>
-                                        <details>
-                                            <summary class="cursor-pointer text-blue-600 hover:text-blue-800">View Details</summary>
-                                            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                                <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-                                                    <div class="flex justify-between items-center mb-4">
-                                                        <h3 class="text-lg font-medium">Log Details</h3>
-                                                        <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
-                                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                    <pre class="text-xs text-gray-600 overflow-x-auto max-h-96 bg-gray-50 p-4 rounded"><%= JSON.stringify(Object.fromEntries(Object.entries(log).filter(([key]) => !['level', 'message', 'timestamp'].includes(key))), null, 2).replace(/\\n/g, '\n') %></pre>
+                                        <button onclick="showModal(this)" class="text-[#3ECF8E] hover:text-[#3BBF83] font-medium">View Details</button>
+                                        <div class="modal fixed inset-0 bg-black/70 items-center justify-center z-50 backdrop-blur-sm">
+                                            <div class="bg-[#2A2A2A] rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl">
+                                                <div class="flex justify-between items-center mb-4">
+                                                    <h3 class="text-lg font-semibold">Log Details</h3>
+                                                    <button onclick="hideModal(this)" class="text-[#999999] hover:text-white">
+                                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
+                                                <pre class="text-sm text-white overflow-x-auto max-h-96 bg-[#1C1C1C] p-4 rounded-md border border-[#333333]"><%
+                                                    const details = Object.fromEntries(Object.entries(log).filter(([key]) => !['level', 'message', 'timestamp'].includes(key)));
+                                                    let output = '';
+                                                    if (details.port) output += `Running on port: ${details.port}\n`;
+                                                    if (details.log) output += `Log Contents:\n${details.log}\n`; 
+                                                    if (details.warning) output += `Warnings:\n${details.warning}`;
+                                                    %><%= output %></pre>
                                             </div>
-                                        </details>
+                                        </div>
                                     <% } %>
                                 </td>
                             </tr>
-                            <% }); %>
+                        <% }); %>
                     </tbody>
                 </table>
             </div>
@@ -84,7 +101,28 @@
     </div>
 
     <script>
+        function showModal(button) {
+            const modal = button.nextElementSibling;
+            modal.classList.add('show');
+        }
+
+        function hideModal(button) {
+            const modal = button.closest('.modal');
+            modal.classList.remove('show');
+        }
+
         function filterLogs(level) {
+            // Remove active state from all tabs
+            document.querySelectorAll('#all-tab, #info-tab, #error-tab').forEach(tab => {
+                tab.classList.remove('bg-[#3ECF8E]');
+                tab.classList.add('text-white');
+            });
+
+            // Add active state to clicked tab
+            const activeTab = document.getElementById(`${level}-tab`);
+            activeTab.classList.remove('text-white');
+            activeTab.classList.add('bg-[#3ECF8E]');
+
             const entries = document.querySelectorAll('.log-entry');
             entries.forEach(entry => {
                 if (level === 'all' || entry.dataset.level === level) {
@@ -103,46 +141,44 @@
             
             // Create new row
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50 transition-colors log-entry';
+            tr.className = 'hover:bg-[#333333] transition-colors log-entry border-b border-[#333333] last:border-0';
             tr.dataset.level = log.level;
             
             // Format the row HTML
             tr.innerHTML = `
-                <td class="py-2 px-4 text-sm text-gray-500">
+                <td class="py-4 px-6 text-sm text-[#999999]">
                     ${new Date(log.timestamp).toLocaleString()}
                 </td>
-                <td class="py-2 px-4 text-sm">
+                <td class="py-4 px-6 text-sm">
                     <span class="px-2 py-1 rounded-full text-xs font-medium 
-                        ${log.message.includes('error') ? 'bg-red-100 text-red-800' : 
-                          log.message.includes('warning') ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-green-100 text-green-800'}">
+                        ${log.message.includes('error') ? 'bg-red-900/50 text-red-400' : 
+                          log.message.includes('warning') ? 'bg-yellow-900/50 text-yellow-400' : 
+                          'bg-emerald-900/50 text-emerald-400'}">
                         ${log.message.includes('error') ? 'error' : 
                           log.message.includes('warning') ? 'warning' : 'info'}
                     </span>
                 </td>
-                <td class="py-2 px-4 text-sm text-gray-500">
-                    <span class="${log.message === 'Deployment successful' ? 'text-green-600' : 'text-gray-500'}">
+                <td class="py-4 px-6 text-sm">
+                    <span class="${log.message === 'Deployment successful' ? 'text-[#3ECF8E]' : 'text-white'}">
                         ${log.message}
                     </span>
                 </td>
-                <td class="py-2 px-4 text-sm text-gray-500">
+                <td class="py-4 px-6 text-sm">
                     ${Object.keys(log).length > 3 ? `
-                        <details>
-                            <summary class="cursor-pointer text-blue-600 hover:text-blue-800">View Details</summary>
-                            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-                                    <div class="flex justify-between items-center mb-4">
-                                        <h3 class="text-lg font-medium">Log Details</h3>
-                                        <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
-                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <pre class="text-xs text-gray-600 overflow-x-auto max-h-96 bg-gray-50 p-4 rounded">${JSON.stringify(Object.fromEntries(Object.entries(log).filter(([key]) => !['level', 'message', 'timestamp'].includes(key))), null, 2)}</pre>
+                        <button onclick="showModal(this)" class="text-[#3ECF8E] hover:text-[#3BBF83] font-medium">View Details</button>
+                        <div class="modal fixed inset-0 bg-black/70 items-center justify-center z-50 backdrop-blur-sm">
+                            <div class="bg-[#2A2A2A] rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold">Log Details</h3>
+                                    <button onclick="hideModal(this)" class="text-[#999999] hover:text-white">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
                                 </div>
+                                <pre class="text-sm text-white overflow-x-auto max-h-96 bg-[#1C1C1C] p-4 rounded-md border border-[#333333]">${JSON.stringify(Object.fromEntries(Object.entries(log).filter(([key]) => !['level', 'message', 'timestamp'].includes(key))), null, 2)}</pre>
                             </div>
-                        </details>
+                        </div>
                     ` : ''}
                 </td>
             `;
@@ -150,17 +186,7 @@
             // Insert at the top of the table
             const tbody = document.getElementById('logTableBody');
             tbody.insertBefore(tr, tbody.firstChild);
-
-            // Apply current filter
-            const currentFilter = document.getElementById('logFilter').value;
-            if (currentFilter !== 'all' && log.level !== currentFilter) {
-                tr.style.display = 'none';
-            }
         };
-
-        document.getElementById('logFilter').addEventListener('change', (e) => {
-            filterLogs(e.target.value);
-        });
     </script>
 </body>
 
